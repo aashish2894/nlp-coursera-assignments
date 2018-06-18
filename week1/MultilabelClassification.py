@@ -194,3 +194,125 @@ print('c#' in tfidf_vocab)
 print('java' in tfidf_vocab)
 
 #%%
+from sklearn.preprocessing import MultiLabelBinarizer
+
+
+
+mlb = MultiLabelBinarizer(classes=sorted(tags_counts.keys()))
+y_train = mlb.fit_transform(y_train)
+y_val = mlb.fit_transform(y_val)
+
+#%%
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.linear_model import LogisticRegression, RidgeClassifier
+#%%
+def train_classifier(X_train, y_train, C=1.0, penalty='l2'):
+    """
+      X_train, y_train — training data
+      
+      return: trained classifier
+    """
+    
+    lr = LogisticRegression(C=C, penalty=penalty)
+    # lr.fit(X_train, y_train)
+    ovr = OneVsRestClassifier(lr)
+    ovr.fit(X_train, y_train)
+    return ovr
+
+#%%
+classifier_mybag = train_classifier(X_train_mybag, y_train)
+classifier_tfidf = train_classifier(X_train_tfidf, y_train)
+#%%
+y_val_predicted_labels_mybag = classifier_mybag.predict(X_val_mybag)
+y_val_predicted_scores_mybag = classifier_mybag.decision_function(X_val_mybag)
+
+y_val_predicted_labels_tfidf = classifier_tfidf.predict(X_val_tfidf)
+y_val_predicted_scores_tfidf = classifier_tfidf.decision_function(X_val_tfidf)
+
+#%%
+y_val_pred_inversed = mlb.inverse_transform(y_val_predicted_labels_tfidf)
+y_val_inversed = mlb.inverse_transform(y_val)
+for i in range(3):
+    print('Title:\t{}\nTrue labels:\t{}\nPredicted labels:\t{}\n\n'.format(
+        X_val[i],
+        ','.join(y_val_inversed[i]),
+        ','.join(y_val_pred_inversed[i])
+    ))
+    
+#%%
+
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import f1_score
+from sklearn.metrics import roc_auc_score 
+from sklearn.metrics import average_precision_score
+from sklearn.metrics import recall_score
+#%%
+def print_evaluation_scores(y_val, predicted):
+    # print(len(y_val), len(y_val))
+    accuracy = accuracy_score(y_val, predicted)
+    print(#accuracy,
+          #f1_score(y_val, predicted, average='macro'),
+          #f1_score(y_val, predicted, average='micro'),
+          f1_score(y_val, predicted, average='weighted')#,
+          #average_precision_score(y_val, predicted, average='macro'),
+          #average_precision_score(y_val, predicted, average='micro'),
+          #average_precision_score(y_val, predicted, average='weighted')
+         )
+
+#%%
+print('Bag-of-words')
+print_evaluation_scores(y_val, y_val_predicted_labels_mybag)
+print('Tfidf')
+print_evaluation_scores(y_val, y_val_predicted_labels_tfidf)
+#%%
+from metrics import roc_auc
+#%%
+n_classes = len(tags_counts)
+roc_auc(y_val, y_val_predicted_scores_mybag, n_classes)
+#%%
+n_classes = len(tags_counts)
+roc_auc(y_val, y_val_predicted_scores_tfidf, n_classes)
+#%%
+classifier_tfidf = train_classifier(X_train_tfidf, y_train, C=3.0, penalty='l1')
+y_test_predicted_labels_tfidf = classifier_tfidf.predict(X_test_tfidf)
+#%%
+test_predictions = y_test_predicted_labels_tfidf ######### YOUR CODE HERE #############
+test_pred_inversed = mlb.inverse_transform(test_predictions)
+#%%
+def print_words_for_tag(classifier, tag, tags_classes, index_to_words, all_words):
+    """
+        classifier: trained classifier
+        tag: particular tag
+        tags_classes: a list of classes names from MultiLabelBinarizer
+        index_to_words: index_to_words transformation
+        all_words: all words in the dictionary
+        
+        return nothing, just print top 5 positive and top 5 negative words for current tag
+    """
+    print('Tag:\t{}'.format(tag))
+    
+    idx = tags_classes.index(tag)
+    coef=classifier_tfidf.coef_[idx]
+    cd = {i:coef[i] for i in range(len(coef))}
+    scd=sorted(cd.items(), key=lambda x: x[1], reverse=True)
+    # for k in scd[:5]:
+    #     print(k)
+    # print(type(all_words))
+    # print(scd[5][0])
+    # Extract an estimator from the classifier for the given tag.
+    # Extract feature coefficients from the estimator. 
+    
+    ######################################
+    ######### YOUR CODE HERE #############
+    ######################################
+    
+    top_positive_words = [index_to_words[k[0]] for k in scd[:5]]# top-5 words sorted by the coefficiens.
+    top_negative_words = [index_to_words[k[0]] for k in scd[-5:]]# bottom-5 words  sorted by the coefficients.
+    print('Top positive words:\t{}'.format(', '.join(top_positive_words)))
+    print('Top negative words:\t{}\n'.format(', '.join(top_negative_words)))
+
+#%%
+print_words_for_tag(classifier_tfidf, 'c', mlb.classes, tfidf_reversed_vocab, ALL_WORDS)
+print_words_for_tag(classifier_tfidf, 'c++', mlb.classes, tfidf_reversed_vocab, ALL_WORDS)
+print_words_for_tag(classifier_tfidf, 'linux', mlb.classes, tfidf_reversed_vocab, ALL_WORDS)
+#%%
